@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EFL Split Race: CEFR Edition</title>
+    <title>EFL Split Race: CEFR Edition (Modified)</title>
     <style>
         :root {
             --team-1: #2563eb;
@@ -104,7 +104,7 @@
         #timer { font-size: 2rem; font-weight: bold; color: #f59e0b; min-width: 60px; text-align: center; }
         #roundDisplay { font-size: 1.1rem; font-weight: bold; text-transform: uppercase; color: #94a3b8; }
 
-        .split-layout { width: 100vw; height: 100vh; display: flex; }
+        .split-layout { width: 100vw; height: 100vh; display: flex; position: relative; }
         
         .team-side {
             flex: 1;
@@ -114,7 +114,7 @@
             align-items: center;
             padding: 40px;
             box-sizing: border-box;
-            position: relative;
+            position: relative; /* Essential for absolute overlays */
         }
 
         #side1 { background-color: #172554; border-right: 2px solid #334155; }
@@ -168,6 +168,32 @@
             margin-top: 10px;
         }
 
+        /* Try Again Overlay */
+        .try-again-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(220, 38, 38, 0.4); /* Error red with transparency */
+            backdrop-filter: blur(2px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: inherit;
+            visibility: hidden;
+            z-index: 5;
+        }
+        .try-again-overlay.active { visibility: visible; }
+        .try-again-overlay span {
+            font-size: 3rem;
+            font-weight: 900;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            transform: scale(0.8);
+            transition: transform 0.2s ease-out;
+        }
+        .try-again-overlay.active span { transform: scale(1); }
+
         /* End Screen Grid */
         #endScreen {
             flex-direction: column;
@@ -187,8 +213,16 @@
             background: #1e293b;
         }
         
+        /* Win Animation */
         .flash-win { animation: matchWin 0.4s 2 alternate; }
         @keyframes matchWin { to { background-color: #065f46; } }
+
+        /* Error Animation */
+        .flash-error { animation: matchError 0.4s 3 alternate; }
+        @keyframes matchError {
+            from { background-color: inherit; }
+            to { background-color: rgba(220, 38, 38, 0.6); }
+        }
     </style>
 </head>
 <body>
@@ -238,6 +272,11 @@
                 <div class="word-bank" id="bank1"></div>
                 <div class="answer-zone" id="zone1"></div>
                 <button class="action-btn" onclick="evaluateSubmission(1)">Submit Answer</button>
+                
+                <!-- NEW OVERLAY MESSAGE -->
+                <div class="try-again-overlay" id="tryAgain1">
+                    <span>TRY AGAIN</span>
+                </div>
             </div>
 
             <!-- Team 2 Panel -->
@@ -247,6 +286,11 @@
                 <div class="word-bank" id="bank2"></div>
                 <div class="answer-zone" id="zone2"></div>
                 <button class="action-btn" onclick="evaluateSubmission(2)">Submit Answer</button>
+
+                <!-- NEW OVERLAY MESSAGE -->
+                <div class="try-again-overlay" id="tryAgain2">
+                    <span>TRY AGAIN</span>
+                </div>
             </div>
         </div>
     </div>
@@ -291,7 +335,6 @@
                 "He spoke with such eloquence that the audience was spellbound.", "Confronted with overwhelming evidence the suspect finally confessed.", "The project fell through due to a distinct lack of funding.", "She acquitted herself remarkably well during the intense interrogation.", "Nervous as he was he delivered a flawless presentation."
             ]
         };
-
         // Game Configuration variables
         let targetedPhrases = [];
         let totalRounds = 3;
@@ -301,40 +344,34 @@
         let targetSentenceString = "";
         let teamMatchScores = { 1: 0, 2: 0 };
         let activePlayState = false;
-
         function initiateMatchSetup() {
             const selectedTier = document.getElementById('difficultySelect').value;
             totalRounds = parseInt(document.getElementById('roundsSelect').value);
-            
+            // Draw matching phrase database and shuffle selection
             targetedPhrases = [...phraseDictionary[selectedTier]].sort(() => Math.random() - 0.5);
-            
+            // Clear match parameters
             activeRound = 1;
             teamMatchScores = { 1: 0, 2: 0 };
             document.getElementById('gameScore1').innerText = "0";
             document.getElementById('gameScore2').innerText = "0";
-            
             transitionToScreen('gameScreen');
             loadNextRoundArena();
         }
-
         function loadNextRoundArena() {
             if (activeRound > totalRounds) {
                 concludeMatchSequence();
                 return;
             }
-
             document.getElementById('roundDisplay').innerText = `Round ${activeRound} / ${totalRounds}`;
             targetSentenceString = targetedPhrases[activeRound - 1] || targetedPhrases[0];
-
+            // Render identical sentence scrambled puzzles to both structures
             populateInteractiveDeck(1, targetSentenceString);
             populateInteractiveDeck(2, targetSentenceString);
-
+            // Establish timer parameters based on character length
             matchTimerValue = targetSentenceString.split(" ").length * 7;
             document.getElementById('timer').innerText = matchTimerValue;
-            
             activePlayState = true;
             clearInterval(globalTimerTicker);
-            
             globalTimerTicker = setInterval(() => {
                 matchTimerValue--;
                 document.getElementById('timer').innerText = matchTimerValue;
@@ -347,16 +384,13 @@
                 }
             }, 1000);
         }
-
         function populateInteractiveDeck(teamId, sentenceStr) {
             const bankNode = document.getElementById(`bank${teamId}`);
             const zoneNode = document.getElementById(`zone${teamId}`);
             bankNode.innerHTML = "";
             zoneNode.innerHTML = "";
-
             const splitArray = sentenceStr.split(" ");
             const dynamicShuffle = [...splitArray].sort(() => Math.random() - 0.5);
-
             dynamicShuffle.forEach(word => {
                 const elementCard = document.createElement('div');
                 elementCard.className = 'word-card';
@@ -365,45 +399,54 @@
                 bankNode.appendChild(elementCard);
             });
         }
-
         function shuttleCardElement(element, id) {
             if (!activePlayState) return;
             const targetContainer = (element.parentElement.id === `bank${id}`) ? `zone${id}` : `bank${id}`;
             document.getElementById(targetContainer).appendChild(element);
         }
-
         function evaluateSubmission(teamId) {
             if (!activePlayState) return;
-
             const solutionNode = document.getElementById(`zone${teamId}`);
             const derivedSentence = Array.from(solutionNode.children).map(c => c.innerText).join(' ');
-
             if (derivedSentence.trim() === targetSentenceString) {
                 clearInterval(globalTimerTicker);
                 activePlayState = false;
                 teamMatchScores[teamId]++;
                 document.getElementById(`gameScore${teamId}`).innerText = teamMatchScores[teamId];
-
                 const winnerPanel = document.getElementById(`side${teamId}`);
                 winnerPanel.classList.add('flash-win');
-
                 setTimeout(() => {
                     winnerPanel.classList.remove('flash-win');
                     activeRound++;
                     loadNextRoundArena();
                 }, 1200);
             } else {
-                alert(`❌ Structure is incorrect for Team ${teamId === 1 ? 'Blue' : 'Red'}. Check syntax!`);
+                // --- MODIFIED ERROR LOGIC ---
+                // Replaced alert() with a visual TRY AGAIN flash overlay
+                const errorPanel = document.getElementById(`side${teamId}`);
+                const tryAgainOverlay = document.getElementById(`tryAgain${teamId}`);
+                
+                // Temporarily halt interaction during error display
+                activePlayState = false;
+
+                // Apply error visual effects
+                errorPanel.classList.add('flash-error');
+                tryAgainOverlay.classList.add('active');
+
+                // Clear overlay and revert state after a short duration
+                setTimeout(() => {
+                    errorPanel.classList.remove('flash-error');
+                    tryAgainOverlay.classList.remove('active');
+                    activePlayState = true;
+                }, 1200); // 1.2 seconds, same as win animation
+                // -----------------------------
             }
         }
-
         function concludeMatchSequence() {
             clearInterval(globalTimerTicker);
             transitionToScreen('endScreen');
-
             document.getElementById('finalScore1').innerText = teamMatchScores[1];
             document.getElementById('finalScore2').innerText = teamMatchScores[2];
-
             const headerNode = document.getElementById('victoryBanner');
             if (teamMatchScores[1] > teamMatchScores[2]) {
                 headerNode.innerText = "🏆 Team Blue Wins!";
@@ -416,11 +459,9 @@
                 headerNode.style.color = "#94a3b8";
             }
         }
-
         function returnToMainMenu() {
             transitionToScreen('homeScreen');
         }
-
         function transitionToScreen(targetId) {
             document.querySelectorAll('.screen').forEach(scr => scr.classList.remove('active'));
             document.getElementById(targetId).classList.add('active');
