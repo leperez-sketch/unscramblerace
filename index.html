@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EFL Split Race: CEFR Edition</title>
+    <style>
+        :root {
+            --team-1: #2563eb;
+            --team-2: #dc2626;
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Screen States */
+        .screen {
+            display: none;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
+        }
+        .screen.active { display: flex; }
+
+        /* Home Screen Styling */
+        #homeScreen {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+        }
+
+        .menu-card {
+            background: rgba(30, 41, 59, 0.7);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 { margin-top: 0; font-size: 2.5rem; color: #60a5fa; }
+        
+        .setting-group {
+            margin: 25px 0;
+            text-align: left;
+        }
+
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #94a3b8; }
+        
+        select, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            box-sizing: border-box;
+        }
+
+        select {
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            cursor: pointer;
+        }
+
+        .primary-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+        .primary-btn:hover { background: #059669; }
+
+        /* Game Screen Layout */
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 10px 25px;
+            border-radius: 30px;
+            border: 2px solid #334155;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        #timer { font-size: 2rem; font-weight: bold; color: #f59e0b; min-width: 60px; text-align: center; }
+        #roundDisplay { font-size: 1.1rem; font-weight: bold; text-transform: uppercase; color: #94a3b8; }
+
+        .split-layout { width: 100vw; height: 100vh; display: flex; }
+        
+        .team-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        #side1 { background-color: #172554; border-right: 2px solid #334155; }
+        #side2 { background-color: #451a03; }
+
+        .team-name { font-size: 2.2rem; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; }
+        #side1 .team-name { color: #60a5fa; }
+        #side2 .team-name { color: #f87171; }
+
+        .score-box { font-size: 1.2rem; background: rgba(0,0,0,0.3); padding: 6px 16px; border-radius: 20px; margin-bottom: 25px; }
+
+        .word-bank, .answer-zone {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+            min-height: 70px;
+            width: 100%;
+            max-width: 520px;
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 15px;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+            box-sizing: border-box;
+        }
+        .answer-zone { border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.03); }
+
+        .word-card {
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #side1 .word-card { background: var(--team-1); }
+        #side2 .word-card { background: var(--team-2); }
+
+        .action-btn {
+            background: #475569;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* End Screen Grid */
+        #endScreen {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #020617;
+        }
+
+        .chart-row {
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 1.5rem;
+            border-radius: 8px;
+            background: #1e293b;
+        }
+        
+        .flash-win { animation: matchWin 0.4s 2 alternate; }
+        @keyframes matchWin { to { background-color: #065f46; } }
+    </style>
+</head>
+<body>
+
+    <!-- 1. HOME SCREEN -->
+    <div class="screen active" id="homeScreen">
+        <div class="menu-card">
+            <h1>Sentence Unscramble</h1>
+            
+            <div class="setting-group">
+                <label for="difficultySelect">CEFR Proficiency Level</label>
+                <select id="difficultySelect">
+                    <option value="A1">A1 - Beginner (Short, Simple Elements)</option>
+                    <option value="A2">A2 - Elementary (Basic Routines)</option>
+                    <option value="B1">B1 - Intermediate (Daily Life/Contexts)</option>
+                    <option value="B2">B2 - Upper Intermediate (Complex Thoughts)</option>
+                    <option value="C1">C1 - Advanced (Idiomatic/Structured Clauses)</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="roundsSelect">Total Match Rounds</label>
+                <select id="roundsSelect">
+                    <option value="2">2 Rounds</option>
+                    <option value="3" selected>3 Rounds</option>
+                    <option value="5">5 Rounds</option>
+                    <option value="7">7 Rounds</option>
+                </select>
+            </div>
+
+            <button class="primary-btn" onclick="initiateMatchSetup()">Launch Arena</button>
+        </div>
+    </div>
+
+    <!-- 2. COMPETITION SCREEN -->
+    <div class="screen" id="gameScreen">
+        <div id="hud">
+            <div id="roundDisplay">Round 1 / 3</div>
+            <div id="timer">45</div>
+        </div>
+
+        <div class="split-layout">
+            <!-- Team 1 Panel -->
+            <div class="team-side" id="side1">
+                <div class="team-name">Team Blue</div>
+                <div class="score-box">Score: <span id="gameScore1">0</span></div>
+                <div class="word-bank" id="bank1"></div>
+                <div class="answer-zone" id="zone1"></div>
+                <button class="action-btn" onclick="evaluateSubmission(1)">Submit Answer</button>
+            </div>
+
+            <!-- Team 2 Panel -->
+            <div class="team-side" id="side2">
+                <div class="team-name">Team Red</div>
+                <div class="score-box">Score: <span id="gameScore2">0</span></div>
+                <div class="word-bank" id="bank2"></div>
+                <div class="answer-zone" id="zone2"></div>
+                <button class="action-btn" onclick="evaluateSubmission(2)">Submit Answer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. SCOREBOARD SCREEN -->
+    <div class="screen" id="endScreen">
+        <div class="menu-card">
+            <h1 id="victoryBanner">Match Complete!</h1>
+            <div style="margin: 20px 0;">
+                <div class="chart-row" style="border-left: 6px solid var(--team-1);">
+                    <span>Team Blue:</span> <span id="finalScore1">0</span>
+                </div>
+                <div class="chart-row" style="border-left: 6px solid var(--team-2);">
+                    <span>Team Red:</span> <span id="finalScore2">0</span>
+                </div>
+            </div>
+            <button class="primary-btn" onclick="returnToMainMenu()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // 50 CEFR categorized phrases (10 per tier)
+        const phraseDictionary = {
+            A1: [
+                "What is your name?", "The cat is on the mat.", "I like to eat apples.", "She has a red car.", "They live in a big house.",
+                "He goes to school every day.", "We drink milk in the morning.", "This book is very interesting.", "Open the window please.", "It is hot today."
+            ],
+            A2: [
+                "Where did you go last weekend?", "She is cooking dinner right now.", "He can run faster than me.", "We are going to visit London.", "I have been to Spain once.",
+                "They were watching a good movie.", "You should wash your hands before eating.", "There are some apples in the basket.", "Tomorrow will be sunny and warm.", "He didn't arrive on time."
+            ],
+            B1: [
+                "If it rains tomorrow we will stay inside.", "She has been studying English for three years.", "Although he was tired he finished his homework.", "I am looking forward to meeting you soon.", "The book which I borrowed yesterday was excellent.",
+                "You don't need to bring any food to the party.", "He suggested going for a walk in the park.", "I used to play tennis when I was younger.", "This apartment is not large enough for us.", "Could you tell me how to get to the station?"
+            ],
+            B2: [
+                "Had I known about the traffic I would have left earlier.", "Despite facing many obstacles she never gave up her dream.", "The new system is expected to improve efficiency significantly.", "He denied having broken the window during the game.", "By the time the police arrived the thieves had escaped.",
+                "She is considered to be one of the best musicians in town.", "I would rather stay home than go out tonight.", "The instructions were so confusing that nobody understood them.", "Rarely do we see such a beautiful sunset here.", "It is vital that everyone follows safety regulations."
+            ],
+            C1: [
+                "Under no circumstances should you press this button.", "Seldom have I witnessed such an outstanding theatrical performance.", "Improbable though it may seem he managed to succeed against all odds.", "Were it not for your timely assistance we would have failed.", "The company has undergone a radical transformation over the past decade.",
+                "He spoke with such eloquence that the audience was spellbound.", "Confronted with overwhelming evidence the suspect finally confessed.", "The project fell through due to a distinct lack of funding.", "She acquitted herself remarkably well during the intense interrogation.", "Nervous as he was he delivered a flawless presentation."
+            ]
+        };
+
+        // Game Configuration variables
+        let targetedPhrases = [];
+        let totalRounds = 3;
+        let activeRound = 1;
+        let matchTimerValue = 45;
+        let globalTimerTicker = null;
+        let targetSentenceString = "";
+        let teamMatchScores = { 1: 0, 2: 0 };
+        let activePlayState = false;
+
+        function initiateMatchSetup() {
+            const selectedTier = document.getElementById('difficultySelect').value;
+            totalRounds = parseInt(document.getElementById('roundsSelect').value);
+            
+            targetedPhrases = [...phraseDictionary[selectedTier]].sort(() => Math.random() - 0.5);
+            
+            activeRound = 1;
+            teamMatchScores = { 1: 0, 2: 0 };
+            document.getElementById('gameScore1').innerText = "0";
+            document.getElementById('gameScore2').innerText = "0";
+            
+            transitionToScreen('gameScreen');
+            loadNextRoundArena();
+        }
+
+        function loadNextRoundArena() {
+            if (activeRound > totalRounds) {
+                concludeMatchSequence();
+                return;
+            }
+
+            document.getElementById('roundDisplay').innerText = `Round ${activeRound} / ${totalRounds}`;
+            targetSentenceString = targetedPhrases[activeRound - 1] || targetedPhrases[0];
+
+            populateInteractiveDeck(1, targetSentenceString);
+            populateInteractiveDeck(2, targetSentenceString);
+
+            matchTimerValue = targetSentenceString.split(" ").length * 7;
+            document.getElementById('timer').innerText = matchTimerValue;
+            
+            activePlayState = true;
+            clearInterval(globalTimerTicker);
+            
+            globalTimerTicker = setInterval(() => {
+                matchTimerValue--;
+                document.getElementById('timer').innerText = matchTimerValue;
+                if (matchTimerValue <= 0) {
+                    clearInterval(globalTimerTicker);
+                    activePlayState = false;
+                    alert("⏰ Round timeout! Proceeding to next round.");
+                    activeRound++;
+                    loadNextRoundArena();
+                }
+            }, 1000);
+        }
+
+        function populateInteractiveDeck(teamId, sentenceStr) {
+            const bankNode = document.getElementById(`bank${teamId}`);
+            const zoneNode = document.getElementById(`zone${teamId}`);
+            bankNode.innerHTML = "";
+            zoneNode.innerHTML = "";
+
+            const splitArray = sentenceStr.split(" ");
+            const dynamicShuffle = [...splitArray].sort(() => Math.random() - 0.5);
+
+            dynamicShuffle.forEach(word => {
+                const elementCard = document.createElement('div');
+                elementCard.className = 'word-card';
+                elementCard.innerText = word;
+                elementCard.onclick = () => shuttleCardElement(elementCard, teamId);
+                bankNode.appendChild(elementCard);
+            });
+        }
+
+        function shuttleCardElement(element, id) {
+            if (!activePlayState) return;
+            const targetContainer = (element.parentElement.id === `bank${id}`) ? `zone${id}` : `bank${id}`;
+            document.getElementById(targetContainer).appendChild(element);
+        }
+
+        function evaluateSubmission(teamId) {
+            if (!activePlayState) return;
+
+            const solutionNode = document.getElementById(`zone${teamId}`);
+            const derivedSentence = Array.from(solutionNode.children).map(c => c.innerText).join(' ');
+
+            if (derivedSentence.trim() === targetSentenceString) {
+                clearInterval(globalTimerTicker);
+                activePlayState = false;
+                teamMatchScores[teamId]++;
+                document.getElementById(`gameScore${teamId}`).innerText = teamMatchScores[teamId];
+
+                const winnerPanel = document.getElementById(`side${teamId}`);
+                winnerPanel.classList.add('flash-win');
+
+                setTimeout(() => {
+                    winnerPanel.classList.remove('flash-win');
+                    activeRound++;
+                    loadNextRoundArena();
+                }, 1200);
+            } else {
+                alert(`❌ Structure is incorrect for Team ${teamId === 1 ? 'Blue' : 'Red'}. Check syntax!`);
+            }
+        }
+
+        function concludeMatchSequence() {
+            clearInterval(globalTimerTicker);
+            transitionToScreen('endScreen');
+
+            document.getElementById('finalScore1').innerText = teamMatchScores[1];
+            document.getElementById('finalScore2').innerText = teamMatchScores[2];
+
+            const headerNode = document.getElementById('victoryBanner');
+            if (teamMatchScores[1] > teamMatchScores[2]) {
+                headerNode.innerText = "🏆 Team Blue Wins!";
+                headerNode.style.color = "#60a5fa";
+            } else if (teamMatchScores[2] > teamMatchScores[1]) {
+                headerNode.innerText = "🏆 Team Red Wins!";
+                headerNode.style.color = "#f87171";
+            } else {
+                headerNode.innerText = "🤝 It's a Tie Match!";
+                headerNode.style.color = "#94a3b8";
+            }
+        }
+
+        function returnToMainMenu() {
+            transitionToScreen('homeScreen');
+        }
+
+        function transitionToScreen(targetId) {
+            document.querySelectorAll('.screen').forEach(scr => scr.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
